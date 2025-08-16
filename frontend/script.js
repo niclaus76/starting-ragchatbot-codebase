@@ -7,6 +7,9 @@ let currentSessionId = null;
 // DOM elements
 let chatMessages, chatInput, sendButton, totalCourses, courseTitles;
 
+// Visualization state
+let currentVisualization = null;
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     // Get DOM elements after page loads
@@ -29,6 +32,22 @@ function setupEventListeners() {
         if (e.key === 'Enter') sendMessage();
     });
     
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const tabName = e.target.getAttribute('data-tab');
+            switchTab(tabName);
+        });
+    });
+    
+    // Visualization controls
+    const refreshBtn = document.getElementById('refreshViz');
+    const centerBtn = document.getElementById('centerViz');
+    const vizModeSelect = document.getElementById('vizMode');
+    
+    if (refreshBtn) refreshBtn.addEventListener('click', refreshVisualization);
+    if (centerBtn) centerBtn.addEventListener('click', centerVisualization);
+    if (vizModeSelect) vizModeSelect.addEventListener('change', changeVisualizationMode);
     
     // Suggested questions
     document.querySelectorAll('.suggested-item').forEach(button => {
@@ -187,5 +206,270 @@ async function loadCourseStats() {
         if (courseTitles) {
             courseTitles.innerHTML = '<span class="error">Failed to load courses</span>';
         }
+    }
+}
+
+// Tab Management
+function switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    document.getElementById(`${tabName}-tab`).classList.add('active');
+    
+    // Load visualization if switching to visualization tab
+    if (tabName === 'visualization' && !currentVisualization) {
+        loadVisualization();
+    }
+}
+
+// Visualization Functions
+async function loadVisualization() {
+    const container = document.getElementById('courseVisualization');
+    if (!container) return;
+    
+    container.innerHTML = '<div class="viz-loading">Loading visualization...</div>';
+    
+    try {
+        const response = await fetch(`${API_URL}/visualization-data`);
+        if (!response.ok) throw new Error('Failed to load visualization data');
+        
+        const data = await response.json();
+        createNetworkVisualization(data);
+        
+    } catch (error) {
+        console.error('Error loading visualization:', error);
+        container.innerHTML = '<div class="viz-error">Failed to load visualization. Please try again.</div>';
+    }
+}
+
+function createNetworkVisualization(data) {
+    const container = document.getElementById('courseVisualization');
+    container.innerHTML = ''; // Clear loading message
+    
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    
+    // Create SVG
+    const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height)
+        .style('background', 'var(--background)');
+    
+    // Create tooltip
+    const tooltip = d3.select('body')
+        .append('div')
+        .attr('class', 'tooltip')
+        .style('opacity', 0);
+    
+    // Setup force simulation
+    const simulation = d3.forceSimulation(data.nodes)
+        .force('link', d3.forceLink(data.links).id(d => d.id).distance(80))
+        .force('charge', d3.forceManyBody().strength(-300))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collision', d3.forceCollide().radius(25));
+    
+    // Create links
+    const link = svg.append('g')
+        .attr('class', 'links')
+        .selectAll('line')
+        .data(data.links)
+        .enter().append('line')
+        .attr('class', 'link')
+        .style('stroke', '#475569')
+        .style('stroke-opacity', 0.6)
+        .style('stroke-width', 2);
+    
+    // Create nodes
+    const node = svg.append('g')
+        .attr('class', 'nodes')
+        .selectAll('circle')
+        .data(data.nodes)
+        .enter().append('circle')
+        .attr('class', d => `node ${d.type}`)
+        .attr('r', d => {
+            switch(d.type) {
+                case 'instructor': return 20;
+                case 'course': return 15;
+                case 'lesson': return 10;
+                default: return 10;
+            }
+        })
+        .style('fill', d => {
+            switch(d.type) {
+                case 'instructor': return '#f59e0b';
+                case 'course': return '#3b82f6';
+                case 'lesson': return '#10b981';
+                default: return '#6b7280';
+            }
+        })
+        .style('stroke', d => {
+            switch(d.type) {
+                case 'instructor': return '#d97706';
+                case 'course': return '#1d4ed8';
+                case 'lesson': return '#047857';
+                default: return '#374151';
+            }
+        })
+        .style('stroke-width', 2)
+        .style('cursor', 'pointer')
+        .call(d3.drag()
+            .on('start', dragstarted)
+            .on('drag', dragged)
+            .on('end', dragended));
+    
+    // Add labels
+    const label = svg.append('g')
+        .attr('class', 'labels')
+        .selectAll('text')
+        .data(data.nodes)
+        .enter().append('text')
+        .attr('class', 'node-label')
+        .text(d => {
+            // Truncate long names
+            return d.name.length > 20 ? d.name.substring(0, 17) + '...' : d.name;
+        })
+        .style('font-size', '11px')
+        .style('fill', '#f1f5f9')
+        .style('text-anchor', 'middle')
+        .style('pointer-events', 'none')
+        .style('text-shadow', '-1px -1px 0 #0f172a, 1px -1px 0 #0f172a, -1px 1px 0 #0f172a, 1px 1px 0 #0f172a');
+    
+    // Tooltip events
+    node.on('mouseover', function(event, d) {
+        let tooltipContent = `<div class="tooltip-title">${d.name}</div>`;
+        
+        switch(d.type) {
+            case 'instructor':
+                tooltipContent += `<div class="tooltip-info">Instructor</div>`;
+                break;
+            case 'course':
+                tooltipContent += `<div class="tooltip-info">Course by ${d.instructor}<br/>Lessons: ${d.lesson_count}</div>`;
+                break;
+            case 'lesson':
+                tooltipContent += `<div class="tooltip-info">Lesson ${d.lesson_number}<br/>Course: ${d.course}</div>`;
+                break;
+        }
+        
+        tooltip.transition().duration(200).style('opacity', .9);
+        tooltip.html(tooltipContent)
+            .style('left', (event.pageX + 10) + 'px')
+            .style('top', (event.pageY - 28) + 'px');
+    })
+    .on('mouseout', function() {
+        tooltip.transition().duration(500).style('opacity', 0);
+    });
+    
+    // Click events for external links
+    node.on('click', function(event, d) {
+        if (d.course_link) {
+            window.open(d.course_link, '_blank');
+        } else if (d.lesson_link) {
+            window.open(d.lesson_link, '_blank');
+        }
+    });
+    
+    // Update positions on simulation tick
+    simulation.on('tick', () => {
+        link
+            .attr('x1', d => d.source.x)
+            .attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x)
+            .attr('y2', d => d.target.y);
+        
+        node
+            .attr('cx', d => d.x)
+            .attr('cy', d => d.y);
+        
+        label
+            .attr('x', d => d.x)
+            .attr('y', d => d.y + 4);
+    });
+    
+    // Drag functions
+    function dragstarted(event) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        event.subject.fx = event.subject.x;
+        event.subject.fy = event.subject.y;
+    }
+    
+    function dragged(event) {
+        event.subject.fx = event.x;
+        event.subject.fy = event.y;
+    }
+    
+    function dragended(event) {
+        if (!event.active) simulation.alphaTarget(0);
+        event.subject.fx = null;
+        event.subject.fy = null;
+    }
+    
+    // Store visualization for controls
+    currentVisualization = {
+        svg: svg,
+        simulation: simulation,
+        tooltip: tooltip,
+        width: width,
+        height: height
+    };
+}
+
+// Visualization Controls
+function refreshVisualization() {
+    if (currentVisualization) {
+        currentVisualization.tooltip.remove();
+        currentVisualization = null;
+    }
+    loadVisualization();
+}
+
+function centerVisualization() {
+    if (currentVisualization) {
+        currentVisualization.simulation
+            .force('center', d3.forceCenter(currentVisualization.width / 2, currentVisualization.height / 2))
+            .alpha(0.3)
+            .restart();
+    }
+}
+
+function changeVisualizationMode() {
+    const mode = document.getElementById('vizMode').value;
+    if (!currentVisualization) return;
+    
+    // Clear current forces and restart with new layout
+    const { simulation, width, height } = currentVisualization;
+    
+    switch(mode) {
+        case 'radial':
+            simulation
+                .force('charge', d3.forceManyBody().strength(-200))
+                .force('radial', d3.forceRadial(100, width / 2, height / 2).strength(0.1))
+                .alpha(0.3)
+                .restart();
+            break;
+        case 'tree':
+            simulation
+                .force('charge', d3.forceManyBody().strength(-100))
+                .force('y', d3.forceY(d => d.group * 150 + 100).strength(0.5))
+                .force('x', d3.forceX(width / 2).strength(0.1))
+                .alpha(0.3)
+                .restart();
+            break;
+        default: // network
+            simulation
+                .force('charge', d3.forceManyBody().strength(-300))
+                .force('radial', null)
+                .force('y', null)
+                .force('x', null)
+                .alpha(0.3)
+                .restart();
+            break;
     }
 }

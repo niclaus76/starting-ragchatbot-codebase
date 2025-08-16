@@ -85,6 +85,90 @@ async def get_course_stats():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/visualization-data")
+async def get_visualization_data():
+    """Get course data for visualization"""
+    try:
+        # Get detailed course metadata for visualization
+        courses_metadata = rag_system.vector_store.get_all_courses_metadata()
+        
+        nodes = []
+        links = []
+        node_id_map = {}
+        next_id = 0
+        
+        # Create instructor nodes
+        instructors = {}
+        for course in courses_metadata:
+            instructor = course.get('instructor', 'Unknown')
+            if instructor not in instructors:
+                instructors[instructor] = next_id
+                nodes.append({
+                    'id': next_id,
+                    'name': instructor,
+                    'type': 'instructor',
+                    'group': 0
+                })
+                node_id_map[instructor] = next_id
+                next_id += 1
+        
+        # Create course nodes and links to instructors
+        for course in courses_metadata:
+            course_title = course.get('title', 'Unknown Course')
+            instructor = course.get('instructor', 'Unknown')
+            lessons = course.get('lessons', [])
+            
+            # Course node
+            course_id = next_id
+            nodes.append({
+                'id': course_id,
+                'name': course_title,
+                'type': 'course',
+                'group': 1,
+                'instructor': instructor,
+                'lesson_count': len(lessons),
+                'course_link': course.get('course_link', '')
+            })
+            node_id_map[course_title] = course_id
+            next_id += 1
+            
+            # Link course to instructor
+            if instructor in node_id_map:
+                links.append({
+                    'source': node_id_map[instructor],
+                    'target': course_id,
+                    'type': 'teaches'
+                })
+            
+            # Create lesson nodes and links to course
+            for lesson in lessons:
+                lesson_title = lesson.get('lesson_title', f"Lesson {lesson.get('lesson_number', '?')}")
+                lesson_id = next_id
+                nodes.append({
+                    'id': lesson_id,
+                    'name': lesson_title,
+                    'type': 'lesson',
+                    'group': 2,
+                    'lesson_number': lesson.get('lesson_number'),
+                    'course': course_title,
+                    'lesson_link': lesson.get('lesson_link', '')
+                })
+                next_id += 1
+                
+                # Link lesson to course
+                links.append({
+                    'source': course_id,
+                    'target': lesson_id,
+                    'type': 'contains'
+                })
+        
+        return {
+            'nodes': nodes,
+            'links': links
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.on_event("startup")
 async def startup_event():
     """Load initial documents on startup"""

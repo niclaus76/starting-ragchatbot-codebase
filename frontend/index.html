@@ -53,21 +53,60 @@
 
             <!-- Main Chat Area -->
             <main class="chat-main">
-                <div class="chat-container">
-                    <div id="chatMessages" class="chat-messages"></div>
-                    <div class="chat-input-container">
-                        <input 
-                            type="text" 
-                            id="chatInput" 
-                            placeholder="Ask about courses, lessons, or specific content..."
-                            autocomplete="off"
-                        >
-                        <button id="sendButton">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <line x1="22" y1="2" x2="11" y2="13"></line>
-                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                            </svg>
-                        </button>
+                <!-- Visualization Tab Controls -->
+                <div class="tab-controls">
+                    <button class="tab-btn active" data-tab="chat">💬 Chat</button>
+                    <button class="tab-btn" data-tab="visualization">📊 Course Network</button>
+                </div>
+
+                <!-- Chat Tab -->
+                <div id="chat-tab" class="tab-content active">
+                    <div class="chat-container">
+                        <div id="chatMessages" class="chat-messages"></div>
+                        <div class="chat-input-container">
+                            <input 
+                                type="text" 
+                                id="chatInput" 
+                                placeholder="Ask about courses, lessons, or specific content..."
+                                autocomplete="off"
+                            >
+                            <button id="sendButton">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visualization Tab -->
+                <div id="visualization-tab" class="tab-content">
+                    <div class="visualization-container">
+                        <div class="viz-controls">
+                            <button id="refreshViz" class="viz-btn">🔄 Refresh</button>
+                            <button id="centerViz" class="viz-btn">🎯 Center</button>
+                            <select id="vizMode" class="viz-select">
+                                <option value="network">Network View</option>
+                                <option value="radial">Radial View</option>
+                                <option value="tree">Tree View</option>
+                            </select>
+                        </div>
+                        <div id="courseVisualization" class="visualization-area"></div>
+                        <div class="viz-legend">
+                            <div class="legend-item">
+                                <div class="legend-dot course-node"></div>
+                                <span>Courses</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-dot lesson-node"></div>
+                                <span>Lessons</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-dot instructor-node"></div>
+                                <span>Instructors</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </main>
@@ -76,6 +115,7 @@
 
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="script.js?v=9"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="script.js?v=10"></script>
 </body>
 </html>
