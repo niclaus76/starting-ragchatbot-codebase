@@ -29,3 +29,5 @@ uploads/
 # OS
 .DS_Store
 Thumbs.db
+system_architecture_diagram.md
+user_interaction_diagram.md
