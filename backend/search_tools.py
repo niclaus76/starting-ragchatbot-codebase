@@ -119,15 +119,13 @@ class CourseSearchTool(Tool):
                 except Exception as e:
                     print(f"Error getting course link: {e}")
             
-            # Create source object with text and optional URL
-            if source_url:
-                sources.append({
-                    "text": source_text,
-                    "url": source_url
-                })
-            else:
-                # Fallback to plain text if no URL available
-                sources.append(source_text)
+            # TEMPORARY TEST: Force ALL sources to be objects to verify pipeline
+            test_url = f"https://learn.deeplearning.ai/courses/mcp-build-rich-context-ai-apps-with-anthropic/lesson/test/{lesson_num if lesson_num is not None else 0}"
+            print(f"TEMP TEST: Forcing object source: {source_text} -> {test_url}")
+            sources.append({
+                "text": source_text,
+                "url": test_url
+            })
             
             formatted.append(f"{header}\n{doc}")
         

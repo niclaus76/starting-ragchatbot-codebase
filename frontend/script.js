@@ -57,6 +57,12 @@ function setupEventListeners() {
             sendMessage();
         });
     });
+    
+    // New Chat button
+    const newChatBtn = document.getElementById('newChatBtn');
+    if (newChatBtn) {
+        newChatBtn.addEventListener('click', startNewChat);
+    }
 }
 
 
@@ -141,14 +147,18 @@ function addMessage(content, type, sources = null, isWelcome = false) {
     let html = `<div class="message-content">${displayContent}</div>`;
     
     if (sources && sources.length > 0) {
+        console.log('DEBUG: Sources received:', sources);
         // Handle both new object format and legacy string format
         const sourceElements = sources.map(source => {
+            console.log('DEBUG: Processing source:', source, 'Type:', typeof source);
             if (typeof source === 'object' && source.text && source.url) {
                 // New format with clickable links
+                console.log('DEBUG: Creating clickable link for:', source.text, '->', source.url);
                 return `<a href="${source.url}" target="_blank" rel="noopener noreferrer" class="source-link">${source.text}</a>`;
             } else {
                 // Legacy string format or object without URL
                 const text = typeof source === 'object' ? source.text || source : source;
+                console.log('DEBUG: Creating plain text for:', text);
                 return `<span class="source-text">${text}</span>`;
             }
         });
@@ -181,6 +191,23 @@ async function createNewSession() {
     currentSessionId = null;
     chatMessages.innerHTML = '';
     addMessage('Welcome to the Course Materials Assistant! I can help you with questions about courses, lessons and specific content. What would you like to know?', 'assistant', null, true);
+}
+
+async function startNewChat() {
+    // Clear current chat
+    currentSessionId = null;
+    chatMessages.innerHTML = '';
+    chatInput.value = '';
+    
+    // Reset input state in case it was disabled
+    chatInput.disabled = false;
+    sendButton.disabled = false;
+    
+    // Add welcome message
+    addMessage('Welcome to the Course Materials Assistant! I can help you with questions about courses, lessons and specific content. What would you like to know?', 'assistant', null, true);
+    
+    // Focus on input for better UX
+    chatInput.focus();
 }
 
 // Load course statistics

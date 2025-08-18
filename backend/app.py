@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Union, Dict, Any
 import os
 
 from config import config
@@ -43,13 +43,17 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     """Response model for course queries"""
     answer: str
-    sources: List[str]
+    sources: List[Union[str, Dict[str, Any]]]  # Support both strings and objects with text/url
     session_id: str
 
 class CourseStats(BaseModel):
     """Response model for course statistics"""
     total_courses: int
     course_titles: List[str]
+
+class SessionResponse(BaseModel):
+    """Response model for new session creation"""
+    session_id: str
 
 # API Endpoints
 
@@ -84,6 +88,66 @@ async def get_course_stats():
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/new-session", response_model=SessionResponse)
+async def create_new_session():
+    """Create a new chat session"""
+    try:
+        session_id = rag_system.session_manager.create_session()
+        return SessionResponse(session_id=session_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/debug-links")
+async def debug_links():
+    """Debug endpoint to check if lesson links are accessible"""
+    try:
+        # Get all course metadata to see what's stored
+        all_courses = rag_system.vector_store.get_all_courses_metadata()
+        
+        debug_info = {
+            "total_courses": len(all_courses),
+            "courses": []
+        }
+        
+        for course in all_courses:
+            title = course.get('title', 'Unknown')
+            course_link = course.get('course_link', None)
+            lessons = course.get('lessons', [])
+            
+            # Test course link retrieval
+            retrieved_course_link = rag_system.vector_store.get_course_link(title)
+            
+            course_info = {
+                "title": title,
+                "stored_course_link": course_link,
+                "retrieved_course_link": retrieved_course_link,
+                "lesson_count": len(lessons),
+                "lessons": []
+            }
+            
+            # Test first 3 lesson links
+            for lesson in lessons[:3]:
+                lesson_num = lesson.get('lesson_number')
+                lesson_title = lesson.get('lesson_title', 'Unknown')
+                stored_lesson_link = lesson.get('lesson_link', None)
+                
+                # Test lesson link retrieval
+                retrieved_lesson_link = rag_system.vector_store.get_lesson_link(title, lesson_num)
+                
+                lesson_info = {
+                    "lesson_number": lesson_num,
+                    "lesson_title": lesson_title,
+                    "stored_lesson_link": stored_lesson_link,
+                    "retrieved_lesson_link": retrieved_lesson_link
+                }
+                course_info["lessons"].append(lesson_info)
+            
+            debug_info["courses"].append(course_info)
+        
+        return debug_info
+    except Exception as e:
+        return {"error": str(e), "traceback": str(e.__traceback__)}
 
 @app.get("/api/visualization-data")
 async def get_visualization_data():
