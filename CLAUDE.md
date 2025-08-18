@@ -9,6 +9,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Install dependencies**: `uv sync`
 - **Create .env file**: Add `ANTHROPIC_API_KEY=your_key_here` to root directory
 
+### Code Quality
+- **Format code**: `python scripts/format.py` - Auto-format with Black and isort
+- **Check code quality**: `python scripts/lint.py` - Run linting and style checks  
+- **Full quality check**: `scripts/quality-check.sh` (Linux/Mac) or `scripts/quality-check.bat` (Windows)
+- **Setup pre-commit hooks**: `uv run pre-commit install` (optional, for automatic checks on commits)
+
 ### Application Access
 - **Web Interface**: http://localhost:8000
 - **API Documentation**: http://localhost:8000/docs
