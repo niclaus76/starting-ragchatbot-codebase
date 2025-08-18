@@ -31,3 +31,6 @@ uploads/
 Thumbs.db
 system_architecture_diagram.md
 user_interaction_diagram.md
+
+# Git worktrees
+.trees/
